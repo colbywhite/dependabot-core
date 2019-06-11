@@ -237,7 +237,7 @@ module Dependabot
           type = case entry.fetch("gitObjectType")
                  when "blob" then "file"
                  when "tree" then "dir"
-                 else entry.fetch("type")
+                 else entry.fetch("gitObjectType")
                  end
 
           OpenStruct.new(
