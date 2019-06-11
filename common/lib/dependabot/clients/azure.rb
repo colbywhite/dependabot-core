@@ -48,23 +48,7 @@ module Dependabot
       end
 
       def fetch_repo_contents(_repo, commit = nil, path = nil)
-        actual_path = path
-        if path.to_s.empty?
-          actual_path = "/"
-        end
-
-        tree_url = source.api_endpoint +
-          source.organization + "/" + source.project +
-          "/_apis/git/repositories/" + source.unscoped_repo +
-          "/items?path=" + actual_path
-
-        if !commit.to_s.empty?
-          tree_url += "&versionDescriptor.versionType=commit&versionDescriptor.version=" + commit
-        end
-
-        tree_response = get(tree_url)
-
-        tree = JSON.parse(tree_response.body).fetch("objectId")
+        tree = fetch_repo_contents_treeroot(commit, path)
 
         response = get(source.api_endpoint +
           source.organization + "/" + source.project +
@@ -74,11 +58,32 @@ module Dependabot
         JSON.parse(response.body).fetch("treeEntries")
       end
 
+      def fetch_repo_contents_treeroot(commit = nil, path = nil)
+        actual_path = path
+        actual_path = "/" if path.to_s.empty?
+
+        tree_url = source.api_endpoint +
+                   source.organization + "/" + source.project +
+                   "/_apis/git/repositories/" + source.unscoped_repo +
+                   "/items?path=" + actual_path
+
+        unless commit.to_s.empty?
+          tree_url += "&versionDescriptor.versionType=commit" \
+                      "&versionDescriptor.version=" + commit
+        end
+
+        tree_response = get(tree_url)
+
+        JSON.parse(tree_response.body).fetch("objectId")
+      end
+
       def fetch_file_contents(_repo, commit, path)
         response = get(source.api_endpoint +
           source.organization + "/" + source.project +
           "/_apis/git/repositories/" + source.unscoped_repo +
-          "/items?path=" + path + "&versionDescriptor.versionType=commit&versionDescriptor.version=" + commit)
+          "/items?path=" + path +
+          "&versionDescriptor.versionType=commit" \
+          "&versionDescriptor.version=" + commit)
 
         response.body
       end
