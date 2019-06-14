@@ -47,7 +47,7 @@ module Dependabot
         JSON.parse(response.body).fetch("defaultBranch").gsub("refs/heads/", "")
       end
 
-      def fetch_repo_contents(_repo, commit = nil, path = nil)
+      def fetch_repo_contents(commit = nil, path = nil)
         tree = fetch_repo_contents_treeroot(commit, path)
 
         response = get(source.api_endpoint +
@@ -77,7 +77,7 @@ module Dependabot
         JSON.parse(tree_response.body).fetch("objectId")
       end
 
-      def fetch_file_contents(_repo, commit, path)
+      def fetch_file_contents(commit, path)
         response = get(source.api_endpoint +
           source.organization + "/" + source.project +
           "/_apis/git/repositories/" + source.unscoped_repo +
@@ -88,9 +88,105 @@ module Dependabot
         response.body
       end
 
+      def commits(branch_name = nil)
+        commits_url = source.api_endpoint +
+                      source.organization + "/" + source.project +
+                      "/_apis/git/repositories/" + source.unscoped_repo +
+                      "/commits"
+
+        unless branch_name.to_s.empty?
+          commits_url += "?searchCriteria.itemVersion.version=" + branch_name
+        end
+
+        response = get(commits_url)
+
+        JSON.parse(response.body).fetch("value")
+      end
+
+      def branch(branch_name)
+        response = get(source.api_endpoint +
+          source.organization + "/" + source.project +
+          "/_apis/git/repositories/" + source.unscoped_repo +
+          "/refs?filter=heads/" + branch_name)
+
+        JSON.parse(response.body).fetch("value").first
+      end
+
+      def pull_requests(source_branch, target_branch)
+        response = get(source.api_endpoint +
+          source.organization + "/" + source.project +
+          "/_apis/git/repositories/" + source.unscoped_repo +
+          "/pullrequests?searchCriteria.status=all" \
+          "&searchCriteria.sourceRefName=refs/heads/" + source_branch +
+          "&searchCriteria.targetRefName=refs/heads/" + target_branch)
+
+        JSON.parse(response.body).fetch("value").
+          reject { |pull_request| pull_request.fetch("status") == "abandoned" }
+      end
+
+      def create_commit(branch_name, base_commit, commit_message, files)
+        content = {
+          refUpdates: [
+            { name: "refs/heads/" + branch_name, oldObjectId: base_commit }
+          ],
+          commits: [
+            {
+              comment: commit_message,
+              changes: files.map do |file|
+                {
+                  changeType: "edit",
+                  item: { path: file.path },
+                  newContent: {
+                    content: Base64.encode64(file.content),
+                    contentType: "base64encoded"
+                  }
+                }
+              end
+            }
+          ]
+        }
+
+        post(source.api_endpoint + source.organization + "/" + source.project +
+          "/_apis/git/repositories/" + source.unscoped_repo +
+          "/pushes?api-version=5.0", content.to_json)
+      end
+
+      def create_pull_request(pr_name, source_branch, target_branch,
+                              pr_description, labels)
+        content = {
+          sourceRefName: "refs/heads/" + source_branch,
+          targetRefName: "refs/heads/" + target_branch,
+          title: pr_name,
+          description: pr_description[0..3999],
+          labels: labels.map { |label| { name: label } }
+        }
+
+        post(source.api_endpoint +
+          source.organization + "/" + source.project +
+          "/_apis/git/repositories/" + source.unscoped_repo +
+          "/pullrequests?api-version=5.0", content.to_json)
+      end
+
       def get(url)
         response = Excon.get(
           url,
+          user: credentials&.fetch("username"),
+          password: credentials&.fetch("password"),
+          idempotent: true,
+          **SharedHelpers.excon_defaults
+        )
+        raise NotFound if response.status == 404
+
+        response
+      end
+
+      def post(url, json)
+        response = Excon.post(
+          url,
+          headers: {
+            "Content-Type" => "application/json"
+          },
+          body: json,
           user: credentials&.fetch("username"),
           password: credentials&.fetch("password"),
           idempotent: true,

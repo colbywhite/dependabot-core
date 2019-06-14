@@ -155,7 +155,7 @@ module Dependabot
         when "gitlab"
           _gitlab_repo_contents(repo, path, commit)
         when "azure"
-          _azure_repo_contents(repo, path, commit)
+          _azure_repo_contents(path, commit)
         when "bitbucket"
           _bitbucket_repo_contents(repo, path, commit)
         else raise "Unsupported provider '#{provider}'."
@@ -226,12 +226,8 @@ module Dependabot
           end
       end
 
-      def _azure_repo_contents(repo, path, commit)
-        response = azure_client.fetch_repo_contents(
-          repo,
-          commit,
-          path
-        )
+      def _azure_repo_contents(path, commit)
+        response = azure_client.fetch_repo_contents(commit, path)
 
         response.map do |entry|
           type = case entry.fetch("gitObjectType")
@@ -327,7 +323,7 @@ module Dependabot
           tmp = gitlab_client.get_file(repo, path, commit).content
           Base64.decode64(tmp).force_encoding("UTF-8").encode
         when "azure"
-          azure_client.fetch_file_contents(repo, commit, path)
+          azure_client.fetch_file_contents(commit, path)
         when "bitbucket"
           bitbucket_client.fetch_file_contents(repo, commit, path)
         else raise "Unsupported provider '#{source.provider}'."
