@@ -390,7 +390,7 @@ module Dependabot
       end
 
       def metadata_cascades_for_dep(dep)
-        msg = "\n\n"
+        msg = ""
         msg += vulnerabilities_cascade(dep)
         msg += release_cascade(dep)
         msg += changelog_cascade(dep)
@@ -518,7 +518,7 @@ module Dependabot
       def build_details_tag(summary:, body:)
         # Azure DevOps does not support <details> tag (https://developercommunity.visualstudio.com/content/problem/608769/add-support-for-in-markdown.html)
         if source.provider == "azure"
-          "\##{summary}\n\n#{body}"
+          "\n\##{summary}\n\n#{body}"
         else
           msg = "\n<details>\n<summary>#{summary}</summary>\n\n"
           msg += body
