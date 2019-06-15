@@ -153,11 +153,19 @@ module Dependabot
 
       def create_pull_request(pr_name, source_branch, target_branch,
                               pr_description, labels)
+        # Azure DevOps only support descriptions up to 4000 characters (https://developercommunity.visualstudio.com/content/problem/608770/remove-4000-character-limit-on-pull-request-descri.html)
+        azure_max_length = 3999
+        if pr_description.length > azure_max_length
+          truncated_msg = "...\n\n_Description has been truncated_"
+          truncate_length = azure_max_length - truncated_msg.length
+          pr_description = pr_description[0..truncate_length] + truncated_msg
+        end
+
         content = {
           sourceRefName: "refs/heads/" + source_branch,
           targetRefName: "refs/heads/" + target_branch,
           title: pr_name,
-          description: pr_description[0..3999],
+          description: pr_description,
           labels: labels.map { |label| { name: label } }
         }
 
