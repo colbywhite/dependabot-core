@@ -390,7 +390,7 @@ module Dependabot
       end
 
       def metadata_cascades_for_dep(dep)
-        msg = ""
+        msg = "\n\n"
         msg += vulnerabilities_cascade(dep)
         msg += release_cascade(dep)
         msg += changelog_cascade(dep)
@@ -516,9 +516,13 @@ module Dependabot
       end
 
       def build_details_tag(summary:, body:)
-        msg = "\n<details>\n<summary>#{summary}</summary>\n\n"
-        msg += body
-        msg + "</details>"
+        if source.provider == "azure"
+          "\##{summary}\n\n#{body}"
+        else
+          msg = "\n<details>\n<summary>#{summary}</summary>\n\n"
+          msg += body
+          msg + "</details>"
+        end
       end
 
       def serialized_vulnerability_details(details)
